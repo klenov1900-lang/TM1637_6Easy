@@ -1,33 +1,114 @@
 # TM1637_6Easy
 
-High-performance library for 6-digit LED displays based on TM1637 driver with direct port I/O.
+Высокопроизводительная библиотека для 6-разрядных светодиодных дисплеев на основе драйвера TM1637 с прямым портовым вводом-выводом.
 
-## Features
+## 📦 Установка
 
-- Direct port I/O for maximum speed
-- Minimal memory footprint
-- Supports any digital pins D2-D13, A0-A5
-- Display numbers with automatic leading zero removal
-- Dot control (colon)
-- Two digit orders: normal(0.1.2.3.4.5) and "Chinese" (2.1.0.5.4.3)
+### Способ 1: Через менеджер библиотек Arduino IDE (рекомендуется)
 
-## Installation
+1. Откройте Arduino IDE
+2. Перейдите в **Скетч** → **Подключить библиотеку** → **Управлять библиотеками...**
+3. В поиске введите `TM1637_6Easy`
+4. Нажмите **Установить**
 
-1. Download the library
-2. Place in `libraries/TM1637_6Easy`
-3. Restart Arduino IDE
+### Способ 2: Вручную
 
-## Quick Start
+1. Скачайте ZIP-архив с [последней версией](https://github.com/klenov1900-lang/TM1637_6Easy/releases)
+2. В Arduino IDE: **Скетч** → **Подключить библиотеку** → **Добавить .ZIP библиотеку...**
+3. Выберите скачанный архив
 
-```cpp
+### Способ 3: Через Git
+
+```bash
+git clone https://github.com/klenov1900-lang/TM1637_6Easy.git
+🔌 Подключение
+Пин TM1637	Arduino
+VCC	+5V
+GND	GND
+CLK	D2-D13, A0-A5
+DIO	D2-D13, A0-A5
+📊 Допустимые пины
+Пины	Статус	Примечание
+D2–D7	✅ МОЖНО	Цифровые пины PORTD
+D8–D13	✅ МОЖНО	Цифровые пины PORTB
+A0–A5	✅ МОЖНО	Аналоговые пины как цифровые (PORTC)
+D0, D1	❌ НЕЛЬЗЯ	Заняты UART
+A6, A7	❌ НЕЛЬЗЯ	Только аналоговый вход
+🎯 Рекомендуемые пины
+cpp
+TM1637_6Easy display(8, 9, 3);    // CLK=D8, DIO=D9
+TM1637_6Easy display(4, 5, 3);    // CLK=D4, DIO=D5
+TM1637_6Easy display(A0, A1, 3);  // CLK=A0, DIO=A1
+🚀 Быстрый старт
+cpp
 #include "TM1637_6Easy.h"
 
-TM1637_6Easy display(8, 9, 3);
+TM1637_6Easy display(8, 9, 3);  // CLK=D8, DIO=D9, яркость=3
 
 void setup() {
-    display.begin();
-    display.showNumber(2026);
-    display.update();
+    display.begin();          // Инициализация
+    display.showNumber(2026); // Вывод числа
+    display.update();         // Отправка на дисплей
 }
 
-void loop() {}
+void loop() {
+    // ...
+}
+📚 Доступные функции
+Функция	Описание
+begin()	Инициализация (нормальный порядок 0,1,2,3,4,5)
+begin(1)	Инициализация (китайский порядок 2,1,0,5,4,3)
+showNumber(n)	Вывод целого числа (-99999..999999)
+setDotOn(pos)	Включить точку на позиции (0-5)
+setDotOff(pos)	Выключить точку на позиции (0-5)
+clearDots()	Очистить все точки
+setDots(mask)	Установить точки битовой маской (0x00-0x3F)
+setBrightness(level)	Установить яркость (0-7)
+clear()	Очистить буфер
+update()	Отправить буфер на дисплей
+📊 Примеры использования
+Вывод числа с двоеточием (часы)
+cpp
+display.showNumber(1234);
+display.setDots(0b00010100);  // Точки на позициях 2 и 4
+display.update();
+Мигающая точка
+cpp
+display.showNumber(1234);
+if (dot_state) {
+    display.setDots(0b00010000);  // Позиция 4
+} else {
+    display.clearDots();
+}
+display.update();
+Счётчик секунд
+cpp
+void loop() {
+    static uint32_t last = 0;
+    if (millis() - last >= 1000) {
+        last = millis();
+        display.showNumber((millis() / 1000) % 100);
+        display.update();
+    }
+}
+⚙️ Особенности
+Direct Port I/O — прямая работа с портами для максимальной скорости
+
+Минимальный размер — только самое необходимое
+
+Отказоустойчивость — не зависает при отключении дисплея
+
+Буферизация — все изменения применяются после update()
+
+📝 История версий
+Версия	Дата	Изменения
+v1.0.0	2026-09-05	Первый релиз
+📄 Лицензия
+MIT License
+
+📧 Контакты
+Email: gray_wolf19@mail.ru
+
+GitHub: klenov1900-lang
+
+⭐ Если библиотека вам полезна, поставьте звезду на GitHub! ⭐
