@@ -9,7 +9,7 @@ High-performance library for 6-digit LED displays based on TM1637 driver with di
 - Supports any digital pins D2-D13, A0-A5
 - Display numbers with automatic leading zero removal
 - Dot control (colon)
-- Two digit orders: normal and "Chinese" (2,1,0,5,4,3)
+- Two digit orders: normal(0.1.2.3.4.5) and "Chinese" (2.1.0.5.4.3)
 
 ## Installation
 
