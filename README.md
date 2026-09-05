@@ -34,13 +34,15 @@ D8–D13	✅ МОЖНО	Цифровые пины PORTB
 A0–A5	✅ МОЖНО	Аналоговые пины как цифровые (PORTC)
 D0, D1	❌ НЕЛЬЗЯ	Заняты UART
 A6, A7	❌ НЕЛЬЗЯ	Только аналоговый вход
+
 🎯 Рекомендуемые пины
-cpp
+
 TM1637_6Easy display(8, 9, 3);    // CLK=D8, DIO=D9
 TM1637_6Easy display(4, 5, 3);    // CLK=D4, DIO=D5
 TM1637_6Easy display(A0, A1, 3);  // CLK=A0, DIO=A1
+
 🚀 Быстрый старт
-cpp
+
 #include "TM1637_6Easy.h"
 
 TM1637_6Easy display(8, 9, 3);  // CLK=D8, DIO=D9, яркость=3
@@ -54,6 +56,7 @@ void setup() {
 void loop() {
     // ...
 }
+
 📚 Доступные функции
 Функция	Описание
 begin()	Инициализация (нормальный порядок 0,1,2,3,4,5)
@@ -66,14 +69,15 @@ setDots(mask)	Установить точки битовой маской (0x00-
 setBrightness(level)	Установить яркость (0-7)
 clear()	Очистить буфер
 update()	Отправить буфер на дисплей
+
 📊 Примеры использования
 Вывод числа с двоеточием (часы)
-cpp
+
 display.showNumber(1234);
 display.setDots(0b00010100);  // Точки на позициях 2 и 4
 display.update();
 Мигающая точка
-cpp
+ 
 display.showNumber(1234);
 if (dot_state) {
     display.setDots(0b00010000);  // Позиция 4
@@ -82,7 +86,7 @@ if (dot_state) {
 }
 display.update();
 Счётчик секунд
-cpp
+ 
 void loop() {
     static uint32_t last = 0;
     if (millis() - last >= 1000) {
@@ -91,6 +95,7 @@ void loop() {
         display.update();
     }
 }
+
 ⚙️ Особенности
 Direct Port I/O — прямая работа с портами для максимальной скорости
 
