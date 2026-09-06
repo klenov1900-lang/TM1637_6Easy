@@ -123,7 +123,7 @@ void loop() {
     Версия	   v1.0.1   
     Дата	   2026-09-05    
     Изменения   
-   ``` bash 
+   ``` bash  
    library.properties  "Bump version to 1.0.1"
 
 ```
