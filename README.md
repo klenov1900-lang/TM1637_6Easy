@@ -124,16 +124,17 @@ void loop() {
 
 
 📝 История версий:  
-    Версия	   v1.0.1   
+    Версия	   v1.0.2   
     Дата	   2026-09-05    
     Изменения   
    ``` bash  
-   library.properties  "Bump version to 1.0.1"
+   library.properties  "Bump version to 1.0.2"
 
 ```
      
 📄 Лицензия  
-    MIT License  
+
+MIT License. См. [LICENSE](LICENSE).
 
 ## 📧 Контакты  
 
