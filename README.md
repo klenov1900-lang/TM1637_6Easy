@@ -4,7 +4,6 @@
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Arduino](https://img.shields.io/badge/Arduino-Nano%20%7C%20Uno%20%7C%20Pro%20Mini-teal)
 ![Platform](https://img.shields.io/badge/platform-AVR-orange)
-![Architecture](https://img.shields.io/badge/architecture-avr-yellow)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen)
 
 Высокопроизводительная библиотека для 4- и 6-разрядных светодиодных дисплеев на базе **TM1637** для плат на ATmega328P (Arduino Uno, Nano, Pro Mini).
