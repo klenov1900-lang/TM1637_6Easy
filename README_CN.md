@@ -86,6 +86,8 @@ TM1637_6Easy display(A0, A1, 3);  // CLK=A0, DIO=A1
 
 ### 6 位，非标准顺序
 
+![六位数码管接线图](docs/image1.png)
+
 ```cpp
 #include "TM1637_6Easy.h"
 
@@ -105,6 +107,8 @@ void loop() {}
 
 ### 4 位
 
+![四位数码管接线图](docs/image2.png)
+
 ```cpp
 #include "TM1637_6Easy.h"
 
@@ -123,6 +127,8 @@ void loop() {}
 ```
 
 ### 同时使用两个显示器（4 和 6 位）
+
+![两个显示器接线图](docs/image.png)
 
 ```cpp
 #include "TM1637_6Easy.h"
