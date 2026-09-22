@@ -6,6 +6,8 @@
 ![Platform](https://img.shields.io/badge/platform-AVR-orange)
 ![Status](https://img.shields.io/badge/status-stable-brightgreen)
 
+**Языки:** [Русский](README.md) · [中文](README_CN.md)
+
 Высокопроизводительная библиотека для 4- и 6-разрядных светодиодных дисплеев на базе **TM1637** для плат на ATmega328P (Arduino Uno, Nano, Pro Mini).
 
 Тайминги протокола TM1637 сформированы тактовыми задержками на `nop`, а не `delayMicroseconds()`, а управление пинами идёт **напрямую через регистры** `PORTx` / `DDRx` / `PINx`. Благодаря этому библиотека стабильно работает на дешёвых клонах с **керамическим резонатором**, где решения на `digitalWrite()` могут давать сбои.
