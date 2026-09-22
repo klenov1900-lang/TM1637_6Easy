@@ -122,6 +122,8 @@ void loop() {}
 
 ### Два дисплея одновременно (4 и 6 разрядов)
 
+![Схема подключения TM1637 к Arduino Nano](docs/image.png)
+
 ```cpp
 #include "TM1637_6Easy.h"
 
