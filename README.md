@@ -84,6 +84,8 @@ TM1637_6Easy display(A0, A1, 3);  // CLK=A0, DIO=A1
 
 ### 6 разрядов, китайский порядок
 
+![Схема подключения TM1637 к Arduino Nano](docs/image1.png)
+
 ```cpp
 #include "TM1637_6Easy.h"
 
@@ -102,6 +104,8 @@ void loop() {}
 ```
 
 ### 4 разряда
+
+![Схема подключения TM1637 к Arduino Nano](docs/image2.png)
 
 ```cpp
 #include "TM1637_6Easy.h"
