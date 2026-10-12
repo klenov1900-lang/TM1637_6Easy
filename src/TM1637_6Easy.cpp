@@ -347,15 +347,34 @@ void TM1637_6Easy::_setPositionBuffer(uint8_t position, uint8_t symbol) {
 }
 
 // ============================================================
+// ВЫВОД КОДА ОШИБКИ
+// Отображает "Err<код>" в начале дисплея.
+// Работает в любом режиме (4 или 6 разрядов).
+// ============================================================
+
+void TM1637_6Easy::_showError(uint8_t code) {
+    clear();
+    clearDots();
+    
+    _setPositionBuffer(0, 14);   // 'E'
+    _setPositionBuffer(1, 18);   // 'r'
+    _setPositionBuffer(2, 18);   // 'r'
+    
+    if (code < 10) {
+        _setPositionBuffer(3, code);
+    } else {
+        _setPositionBuffer(3, code / 10);
+        _setPositionBuffer(4, code % 10);
+    }
+    
+    update();
+}
+
+// ============================================================
 // showNumber
 // ВНИМАНИЕ: не вызывает update()!
 // Это позволяет вручную управлять точками через setDotOn/setDotOff,
 // а затем отправить всё одной командой display.update().
-//
-// Диапазоны:
-//   4 разряда:  -999 .. 9999
-//   6 разрядов: -99999 .. 999999
-// Вне диапазона — выводит "Err".
 // ============================================================
 
 void TM1637_6Easy::showNumber(int32_t number) {
@@ -373,16 +392,16 @@ void TM1637_6Easy::showNumber(int32_t number) {
     if (number < min_val || number > max_val) {
         uint8_t pos = 0;
         if (number < 0) {
-            _setPositionBuffer(pos++, 19);   // минус
+            _setPositionBuffer(pos++, 19);
         }
-        _setPositionBuffer(pos++, 14);       // 'E'
-        _setPositionBuffer(pos++, 18);       // 'r'
-        _setPositionBuffer(pos,   18);       // 'r'
+        _setPositionBuffer(pos++, 14);
+        _setPositionBuffer(pos++, 18);
+        _setPositionBuffer(pos,   18);
         return;
     }
     
     uint8_t digits[DISPLAY_BUFFER_SIZE];
-    for (int i = 0; i < _digits_count; i++) digits[i] = 20;   // пробел
+    for (int i = 0; i < _digits_count; i++) digits[i] = 20;
     
     bool negative = (number < 0);
     uint32_t absVal = abs(number);
@@ -394,9 +413,540 @@ void TM1637_6Easy::showNumber(int32_t number) {
     }
     
     if (absVal == 0 && i == _digits_count - 1) digits[_digits_count - 1] = 0;
-    if (negative && i >= 0) digits[i] = 19;   // минус
+    if (negative && i >= 0) digits[i] = 19;
     
     for (int pos = 0; pos < _digits_count; pos++) {
         _setPositionBuffer(pos, digits[pos]);
     }
+}
+
+// ============================================================
+// showFloat - диспетчер 4/6 разрядов
+// ============================================================
+
+void TM1637_6Easy::showFloat(float number) {
+    if (_digits_count == 4) {
+        _showFloat4(number);
+    } else {
+        _showFloat6(number);
+    }
+}
+
+// ============================================================
+// showValues - перегрузка
+// ============================================================
+
+void TM1637_6Easy::showValues(uint8_t v1, uint8_t v2) {
+    _showTwoValues(v1, v2);
+}
+
+void TM1637_6Easy::showValues(uint8_t v1, uint8_t v2, uint8_t v3) {
+    _showThreeValues(v1, v2, v3);
+}
+
+// ============================================================
+// _showFloat4
+// ============================================================
+
+void TM1637_6Easy::_showFloat4(float number) {
+    clear();
+    clearDots();
+    
+    bool is_negative = (number < 0);
+    float abs_val = fabs(number);
+    
+    if (abs_val < 0.0000001f) {
+        _setPositionBuffer(1, 0);
+        _setPositionBuffer(2, 0);
+        _setPositionBuffer(3, 0);
+        setDotOn(1);
+        update();
+        return;
+    }
+    
+    long n_scaled;
+    int dot_pos = -1;
+    float temp_val = abs_val;
+    
+    if (is_negative) {
+        if (temp_val < 9.995f) {
+            n_scaled = lroundf(temp_val * 100.0f);
+            dot_pos = 1;
+        } else if (temp_val < 99.995f) {
+            n_scaled = lroundf(temp_val * 10.0f);
+            dot_pos = 2;
+        } else if (temp_val < 999.5f) {
+            n_scaled = lroundf(temp_val);
+            dot_pos = -1;
+        } else {
+            showChars(19, 14, 18, 18, 20, 20);
+            return;
+        }
+    } else {
+        if (temp_val < 99.995f) {
+            n_scaled = lroundf(temp_val * 100.0f);
+            dot_pos = 1;
+        } else if (temp_val < 999.995f) {
+            n_scaled = lroundf(temp_val * 10.0f);
+            dot_pos = 2;
+        } else if (temp_val < 9999.5f) {
+            n_scaled = lroundf(temp_val);
+            dot_pos = -1;
+        } else {
+            showChars(14, 18, 18, 20, 20, 20);
+            return;
+        }
+    }
+    
+    if (is_negative) n_scaled = -n_scaled;
+    
+    uint8_t data[4] = {20, 20, 20, 20};
+    int pos = 3;
+    long n_abs = labs(n_scaled);
+    
+    if (dot_pos == 1) {
+        data[pos--] = n_abs % 10; n_abs /= 10;
+        data[pos--] = n_abs % 10; n_abs /= 10;
+    } else if (dot_pos == 2) {
+        data[pos--] = n_abs % 10; n_abs /= 10;
+    }
+    
+    data[pos--] = n_abs % 10; n_abs /= 10;
+    while (n_abs > 0 && pos >= 0) {
+        data[pos--] = n_abs % 10;
+        n_abs /= 10;
+    }
+    
+    if (is_negative && pos >= 0) data[pos] = 19;
+    
+    if (dot_pos != -1) setDotOn(dot_pos);
+    
+    for (int i = 0; i < 4; i++) {
+        _setPositionBuffer(i, data[i]);
+    }
+    update();
+}
+
+// ============================================================
+// _showFloat6
+// ============================================================
+
+void TM1637_6Easy::_showFloat6(float number) {
+    clear();
+    clearDots();
+    
+    bool is_negative = (number < 0);
+    float abs_val = fabs(number);
+    
+    if (abs_val < 0.0000001f) {
+        uint8_t data[6] = {20, 20, 20, 0, 0, 0};
+        setDotOn(3);
+        for (int i = 0; i < 6; i++) {
+            _setPositionBuffer(i, data[i]);
+        }
+        update();
+        return;
+    }
+    
+    long n_scaled;
+    int dot_pos = -1;
+    float temp_val = abs_val;
+    
+    if (is_negative) {
+        if (temp_val < 99.995f) {
+            n_scaled = lroundf(temp_val * 100.0f);
+            dot_pos = 3;
+        } else if (temp_val < 999.995f) {
+            n_scaled = lroundf(temp_val * 10.0f);
+            dot_pos = 4;
+        } else if (temp_val < 99999.5f) {
+            n_scaled = lroundf(temp_val);
+            dot_pos = -1;
+        } else {
+            showChars(19, 14, 18, 18, 20, 20);
+            return;
+        }
+    } else {
+        if (temp_val < 999.995f) {
+            n_scaled = lroundf(temp_val * 100.0f);
+            dot_pos = 3;
+        } else if (temp_val < 9999.995f) {
+            n_scaled = lroundf(temp_val * 10.0f);
+            dot_pos = 4;
+        } else if (temp_val < 999999.5f) {
+            n_scaled = lroundf(temp_val);
+            dot_pos = -1;
+        } else {
+            showChars(14, 18, 18, 20, 20, 20);
+            return;
+        }
+    }
+    
+    if (is_negative) n_scaled = -n_scaled;
+    
+    uint8_t data[6] = {20, 20, 20, 20, 20, 20};
+    int pos = 5;
+    long n_abs = labs(n_scaled);
+    
+    if (dot_pos == 3) {
+        data[pos--] = n_abs % 10; n_abs /= 10;
+        data[pos--] = n_abs % 10; n_abs /= 10;
+    } else if (dot_pos == 4) {
+        data[pos--] = n_abs % 10; n_abs /= 10;
+    }
+    
+    data[pos--] = n_abs % 10; n_abs /= 10;
+    while (n_abs > 0 && pos >= 0) {
+        data[pos--] = n_abs % 10;
+        n_abs /= 10;
+    }
+    
+    if (is_negative && pos >= 0) data[pos] = 19;
+    
+    if (dot_pos != -1) setDotOn(dot_pos);
+    
+    for (int i = 0; i < 6; i++) {
+        _setPositionBuffer(i, data[i]);
+    }
+    update();
+}
+
+// ============================================================
+// _showTwoValues (4 разряда)
+// ============================================================
+
+void TM1637_6Easy::_showTwoValues(uint8_t val1, uint8_t val2) {
+    if (_digits_count != 4) {
+        _showError(TM1637_ERR_WRONG_MODE_2VAL);
+        return;
+    }
+    
+    if (val1 > 99) val1 = 99;
+    if (val2 > 99) val2 = 99;
+    
+    clear();
+    clearDots();
+    setDotOn(1);
+    
+    _setPositionBuffer(0, val1 / 10);
+    _setPositionBuffer(1, val1 % 10);
+    _setPositionBuffer(2, val2 / 10);
+    _setPositionBuffer(3, val2 % 10);
+    
+    update();
+}
+
+// ============================================================
+// _showThreeValues (6 разрядов)
+// ============================================================
+
+void TM1637_6Easy::_showThreeValues(uint8_t val1, uint8_t val2, uint8_t val3) {
+    if (_digits_count != 6) {
+        _showError(TM1637_ERR_WRONG_MODE_3VAL);
+        return;
+    }
+    
+    if (val1 > 99) val1 = 99;
+    if (val2 > 99) val2 = 99;
+    if (val3 > 99) val3 = 99;
+    
+    clear();
+    clearDots();
+    setDotOn(1);
+    setDotOn(3);
+    
+    _setPositionBuffer(0, val1 / 10);
+    _setPositionBuffer(1, val1 % 10);
+    _setPositionBuffer(2, val2 / 10);
+    _setPositionBuffer(3, val2 % 10);
+    _setPositionBuffer(4, val3 / 10);
+    _setPositionBuffer(5, val3 % 10);
+    
+    update();
+}
+
+// ============================================================
+// showChar
+// ============================================================
+
+void TM1637_6Easy::showChar(uint8_t position, uint8_t symbol) {
+    if (position >= _digits_count) return;
+    _setPositionBuffer(position, symbol);
+    update();
+}
+
+// ============================================================
+// showChars
+// В 4-разрядном режиме s5 и s6 игнорируются.
+// ============================================================
+
+void TM1637_6Easy::showChars(uint8_t s1, uint8_t s2, uint8_t s3, 
+                              uint8_t s4, uint8_t s5, uint8_t s6) {
+    clear();
+    clearDots();
+    
+    uint8_t chars[6] = {s1, s2, s3, s4, s5, s6};
+    for (uint8_t i = 0; i < _digits_count; i++) {
+        _setPositionBuffer(i, chars[i]);
+    }
+    update();
+}
+
+// ============================================================
+// showString
+// Поддерживает: цифры, A-F, H,n,t,u,P,S,L,J,Y,Z,q,I,=,O, '-', '^', '.', ' '
+// '.' — ставит точку в предыдущем разряде
+// ============================================================
+
+void TM1637_6Easy::showString(const char* str) {
+    if (str == nullptr) return;
+    
+    clear();
+    clearDots();
+    
+    uint8_t pos = 0;
+    uint8_t i = 0;
+    
+    while (str[i] != '\0' && pos < _digits_count) {
+        char c = str[i];
+        
+        if (c == '.') {
+            if (pos > 0) setDotOn(pos - 1);
+            i++;
+            continue;
+        }
+        
+        uint8_t idx = 20;
+        
+        if (c >= '0' && c <= '9') {
+            idx = c - '0';
+        } else {
+            switch(c) {
+                case 'A': case 'a': idx = 10; break;
+                case 'B': case 'b': idx = 11; break;
+                case 'C': case 'c': idx = 12; break;
+                case 'D': case 'd': idx = 13; break;
+                case 'E': case 'e': idx = 14; break;
+                case 'F': case 'f': idx = 15; break;
+                case '-': idx = 16; break;
+                case '^': idx = 17; break;
+                case '=': idx = 33; break;
+                case 'H': case 'h': idx = 21; break;
+                case 'I': case 'i': idx = 32; break;
+                case 'J': case 'j': idx = 28; break;
+                case 'L': case 'l': idx = 27; break;
+                case 'N': case 'n': idx = 22; break;
+                case 'O': case 'o': idx = 34; break;
+                case 'P': case 'p': idx = 25; break;
+                case 'Q': case 'q': idx = 31; break;
+                case 'R': case 'r': idx = 18; break;
+                case 'S': case 's': idx = 26; break;
+                case 'T': case 't': idx = 23; break;
+                case 'U': case 'u': idx = 24; break;
+                case 'Y': case 'y': idx = 29; break;
+                case 'Z': case 'z': idx = 30; break;
+                case ' ': idx = 20; break;
+                default: idx = 20; break;
+            }
+        }
+        
+        _setPositionBuffer(pos, idx);
+        pos++;
+        i++;
+    }
+    
+    update();
+}
+
+// ============================================================
+// displayLeft - только 6 разрядов
+// ============================================================
+
+void TM1637_6Easy::displayLeft(int32_t number) {
+    if (_digits_count != 6) {
+        _showError(TM1637_ERR_WRONG_MODE_LEFT);
+        return;
+    }
+    
+    if (number < -999) number = -999;
+    if (number > 999) number = 999;
+    
+    uint8_t digits[6];
+    for (int i = 0; i < 6; i++) digits[i] = 20;
+    
+    bool negative = (number < 0);
+    uint32_t absVal = abs(number);
+    
+    int pos = 2;
+    while (absVal > 0 && pos >= 0) {
+        digits[pos--] = absVal % 10;
+        absVal /= 10;
+    }
+    
+    if (negative && pos >= 0) digits[pos] = 19;
+    
+    clear();
+    clearDots();
+    for (int i = 0; i < 3; i++) {
+        if (digits[i] < SEGMENTS_TABLE_SIZE) {
+            _display_buffer[i] = pgm_read_byte(&SEGMENTS[digits[i]]);
+        }
+    }
+    update();
+}
+
+// ============================================================
+// displayRight - только 6 разрядов
+// ============================================================
+
+void TM1637_6Easy::displayRight(int32_t number) {
+    if (_digits_count != 6) {
+        _showError(TM1637_ERR_WRONG_MODE_RIGHT);
+        return;
+    }
+    
+    if (number < -999) number = -999;
+    if (number > 999) number = 999;
+    
+    uint8_t digits[6];
+    for (int i = 0; i < 6; i++) digits[i] = 20;
+    
+    bool negative = (number < 0);
+    uint32_t absVal = abs(number);
+    
+    int pos = 5;
+    while (absVal > 0 && pos >= 3) {
+        digits[pos--] = absVal % 10;
+        absVal /= 10;
+    }
+    
+    if (negative && pos >= 3) digits[pos] = 19;
+    
+    clear();
+    clearDots();
+    for (int i = 3; i < 6; i++) {
+        if (digits[i] < SEGMENTS_TABLE_SIZE) {
+            _display_buffer[i] = pgm_read_byte(&SEGMENTS[digits[i]]);
+        }
+    }
+    update();
+}
+
+// ============================================================
+// clearLeft - только 6 разрядов
+// ============================================================
+
+void TM1637_6Easy::clearLeft() {
+    if (_digits_count != 6) {
+        _showError(TM1637_ERR_WRONG_MODE_CLEARL);
+        return;
+    }
+    
+    clearDots();
+    for (int i = 0; i < 3; i++) {
+        _display_buffer[i] = 0x00;
+    }
+    update();
+}
+
+// ============================================================
+// clearRight - только 6 разрядов
+// ============================================================
+
+void TM1637_6Easy::clearRight() {
+    if (_digits_count != 6) {
+        _showError(TM1637_ERR_WRONG_MODE_CLEARR);
+        return;
+    }
+    
+    clearDots();
+    for (int i = 3; i < 6; i++) {
+        _display_buffer[i] = 0x00;
+    }
+    update();
+}
+
+// ============================================================
+// displayTemperature - только 6 разрядов
+// При отрицательной температуре точка в позиции 3 (явно).
+// ============================================================
+
+void TM1637_6Easy::displayTemperature(float temperature) {
+    if (_digits_count != 6) {
+        _showError(TM1637_ERR_WRONG_MODE_TEMP);
+        return;
+    }
+
+    const uint8_t BLANK = 20, MINUS = 19, DEG = 17, C = 12;
+
+    if (temperature < -999.0f) temperature = -999.0f;
+    if (temperature > 9999.0f) temperature = 9999.0f;   // было 999.9
+
+    uint8_t digits[6] = {BLANK, BLANK, BLANK, BLANK, DEG, C};
+    int dot_pos = -1;
+
+    bool  negative = (temperature < 0);
+    float abs_val  = fabsf(temperature);
+
+    if (negative && abs_val >= 100.0f) {
+        // ---- МИНУС, 100..999, целые (как было) -----------------------
+        int whole = (int)(abs_val + 0.5f);
+        if (whole > 999) whole = 999;
+
+        digits[0] = MINUS;
+        digits[1] = (whole / 100) % 10;
+        digits[2] = (whole / 10)  % 10;
+        digits[3] =  whole        % 10;
+        // точка не горит
+    } else if (!negative && abs_val >= 1000.0f) {
+        // ---- ПЛЮС, 1000..9999, целые --------------------------------
+        int whole = (int)(abs_val + 0.5f);
+        if (whole > 9999) whole = 9999;
+
+        digits[0] = (whole / 1000) % 10;
+        digits[1] = (whole / 100)  % 10;
+        digits[2] = (whole / 10)   % 10;
+        digits[3] =  whole         % 10;
+        // точка не горит
+    } else {
+        // ---- всё остальное: десятые есть -----------------------------
+        int scaled = (int)(abs_val * 10.0f + 0.5f);
+        uint8_t hundreds = (scaled / 1000) % 10;
+        uint8_t tens     = (scaled / 100)  % 10;
+        uint8_t ones     = (scaled / 10)   % 10;
+        uint8_t frac     =  scaled         % 10;
+
+        if (abs_val >= 100.0f) {
+            // XXX.X  (только плюс, 100.0..999.9)
+            digits[0] = hundreds;
+            digits[1] = tens;
+            digits[2] = ones;
+            digits[3] = frac;
+            dot_pos   = 2;
+        } else if (abs_val >= 10.0f) {
+            // _XX.X  или -XX.X
+            digits[1] = tens;
+            digits[2] = ones;
+            digits[3] = frac;
+            dot_pos   = 2;
+            if (negative) digits[0] = MINUS;
+        } else {
+            // __X.X  или __-X.X
+            digits[2] = ones;
+            digits[3] = frac;
+            dot_pos   = 2;
+            if (negative) digits[1] = MINUS;
+        }
+    }
+
+    clear();
+    clearDots();
+    if (dot_pos >= 0) setDotOn(dot_pos);
+
+    for (int i = 0; i < 6; i++) {
+        if (digits[i] != BLANK) {
+            _setPositionBuffer(i, digits[i]);
+        }
+    }
+    update();
 }
