@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <avr/pgmspace.h>
+#include <math.h>
 #include <string.h>
 
 #define DISPLAY_BUFFER_SIZE 6
@@ -20,16 +21,52 @@ static const uint8_t SEGMENTS[SEGMENTS_TABLE_SIZE] PROGMEM = {
 };
 
 // ============================================================
-// ФАТАЛЬНЫЕ ОШИБКИ
+// КОДЫ ОШИБОК
+// Отображаются на дисплее как Err<код>.
+// Например, код 1 → "Err1", код 2 → "Err2".
 // ============================================================
-// При фатальной ошибке дисплей не работает, а встроенный
-// светодиод (PB5, pin 13 на Nano/Uno) мигает ~3 Гц.
-// Причины:
+#define TM1637_ERR_WRONG_MODE_3VAL   1   // showValues(v1,v2,v3) в 4-разрядном режиме
+#define TM1637_ERR_WRONG_MODE_2VAL   2   // showValues(v1,v2) в 6-разрядном режиме
+#define TM1637_ERR_WRONG_MODE_LEFT   3   // displayLeft() в 4-разрядном режиме
+#define TM1637_ERR_WRONG_MODE_RIGHT  4   // displayRight() в 4-разрядном режиме
+#define TM1637_ERR_WRONG_MODE_TEMP   5   // displayTemperature() в 4-разрядном режиме
+#define TM1637_ERR_WRONG_MODE_CLEARL 6   // clearLeft() в 4-разрядном режиме
+#define TM1637_ERR_WRONG_MODE_CLEARR 7   // clearRight() в 4-разрядном режиме
+
+// ============================================================
+// ДОКУМЕНТАЦИЯ ДЛЯ КОНЕЧНОГО ПОЛЬЗОВАТЕЛЯ
+// ============================================================
+// Библиотека отображает на дисплее "Err<код>" при неправильном
+// использовании функций.
+//
+// Err (без кода) — showNumber() получил число вне диапазона:
+//   4 разряда:  -999 .. 9999
+//   6 разрядов: -99999 .. 999999
+//
+// Err1 — showValues(v1, v2, v3) вызвана в 4-разрядном режиме
+//        (begin(2)). Эта функция работает только с 6 разрядами.
+//
+// Err2 — showValues(v1, v2) вызвана в 6-разрядном режиме
+//        (begin(0) / begin(1)). Эта функция работает только с 4 разрядами.
+//
+// Err3 — displayLeft() вызвана в 4-разрядном режиме.
+//
+// Err4 — displayRight() вызвана в 4-разрядном режиме.
+//
+// Err5 — displayTemperature() вызвана в 4-разрядном режиме.
+//
+// Err6 — clearLeft() вызвана в 4-разрядном режиме.
+//
+// Err7 — clearRight() вызвана в 4-разрядном режиме.
+//
+// ФАТАЛЬНЫЕ ОШИБКИ (мигание встроенного светодиода PB5,
+// дисплей не работает). Все фатальные ошибки мигают одинаково
+// (~3 Гц), различить их по паттерну нельзя. Причины:
+//
 //   - clk_pin == dio_pin
 //   - пин вне диапазона 2..19
 //   - использован A6 или A7 (только аналоговый вход)
 //   - не удалось назначить порты (внутренняя)
-// Плата не выходит из этого состояния до перезагрузки.
 // ============================================================
 
 class TM1637_6Easy {
@@ -53,17 +90,45 @@ public:
     void setBrightness(uint8_t level);
     
     // ============================================================
-    // ВЫВОД ЧИСЕЛ
+    // ВЫВОД ЧИСЕЛ (работают в 4 и 6 разрядах)
     // ============================================================
     // showNumber НЕ вызывает update()!
     // Это позволяет вручную управлять точками через setDotOn/setDotOff,
     // а затем отправить всё одной командой display.update().
-    //
-    // Диапазоны:
-    //   4 разряда:  -999 .. 9999
-    //   6 разрядов: -99999 .. 999999
-    // Вне диапазона — выводит "Err".
     void showNumber(int32_t number);
+    
+    // showFloat вызывает update() внутри; работает в 4 и 6 разрядах
+    void showFloat(float number);
+    
+    // showValues — перегрузка:
+    //   4 разряда:  showValues(v1, v2)        → v1.v2
+    //   6 разрядов: showValues(v1, v2, v3)    → v1.v2.v3
+    // При неверном режиме отображает Err1 (для 3 значений) или Err2 (для 2 значений).
+    void showValues(uint8_t v1, uint8_t v2);
+    void showValues(uint8_t v1, uint8_t v2, uint8_t v3);
+    
+    // ============================================================
+    // ВЫВОД СТРОК И СИМВОЛОВ
+    // ============================================================
+    // showString поддерживает: цифры, A-F, H,n,t,u,P,S,L,J,Y,Z,q,I,=,O,
+    // '-', '^', '.', ' '
+    void showString(const char* str);
+    void showChar(uint8_t position, uint8_t symbol);
+    
+    // showChars: в 4-разрядном режиме используются только s1..s4,
+    // s5 и s6 игнорируются (соответствуют разрядам 5 и 6, которых нет).
+    void showChars(uint8_t s1, uint8_t s2, uint8_t s3, 
+                   uint8_t s4, uint8_t s5, uint8_t s6);
+    
+    // ============================================================
+    // ТОЛЬКО ДЛЯ 6 РАЗРЯДОВ (begin(0) или begin(1))
+    // В режиме begin(2) (4 разряда) — отображают Err3..Err7.
+    // ============================================================
+    void displayLeft(int32_t number);      // Err3 при неверном режиме
+    void displayRight(int32_t number);     // Err4 при неверном режиме
+    void clearLeft();                      // Err6 при неверном режиме
+    void clearRight();                     // Err7 при неверном режиме
+    void displayTemperature(float temperature);  // Err5 при неверном режиме
     
     // ============================================================
     // УПРАВЛЕНИЕ ТОЧКАМИ
@@ -116,6 +181,13 @@ private:
     void _errorHang();
     uint8_t _encodeChar(uint8_t symbol);
     void _setPositionBuffer(uint8_t position, uint8_t symbol);
+    void _showError(uint8_t code);
+    
+    // Внутренние реализации для 4/6 разрядов
+    void _showFloat4(float number);
+    void _showFloat6(float number);
+    void _showTwoValues(uint8_t val1, uint8_t val2);
+    void _showThreeValues(uint8_t val1, uint8_t val2, uint8_t val3);
 };
 
 #endif
